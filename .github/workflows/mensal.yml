@@ -28,7 +28,7 @@ jobs:
           pip install requests pandas
 
       - name: 🚀 Executar script de coleta
-        run: python scripts/conect_reflora.py
+        run: python Scripts/conect_reflora.py
 
       - name: ✅ Verificar se houve mudanças e fazer commit
         run: |
