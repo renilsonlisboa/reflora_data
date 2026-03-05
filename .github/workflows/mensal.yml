@@ -30,10 +30,8 @@ jobs:
       - name: 🚀 Executar script de coleta
         run: python Scripts/conect_reflora.py
 
-      - name: ✅ Verificar se houve mudanças e fazer commit
-        run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git add dados_reflora.csv
-          git commit -m "Atualização mensal automática dos dados de famílias [skip ci]"
-          git push
+      - name: Fazer upload do arquivo como artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dados-flora
+          path: dados_reflora.csv
