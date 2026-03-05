@@ -10,8 +10,10 @@ on:
 jobs:
   update-data:
     runs-on: ubuntu-latest
+    # Permissão apenas de leitura para o conteúdo do repositório (padrão)
+    # A permissão 'contents: write' foi removida porque não faremos push
     permissions:
-      contents: write  # Permissão para fazer push no repositório
+      contents: read
 
     steps:
       - name: 📥 Checkout do repositório
@@ -30,8 +32,9 @@ jobs:
       - name: 🚀 Executar script de coleta
         run: python Scripts/conect_reflora.py
 
-      - name: Fazer upload do arquivo como artifact
+      - name: 📤 Fazer upload do arquivo como artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dados-flora
+          name: dados-flora-$(date +'%Y-%m-%d')  # Nome com data para evitar sobrescrita
           path: dados_reflora.csv
+          if-no-files-found: error  # Opcional: falha se o arquivo não for gerado
