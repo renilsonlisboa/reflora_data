@@ -1,40 +1,75 @@
-import requests
-import pandas as pd
-import sys
-import json
-from time import sleep
+using HTTP
+using JSON3
+using DataFrames
+using CSV
 
-request_familias = requests.get("https://servicos.jbrj.gov.br/v2/flora/families")
+# Endpoint com a lista de famílias
+url_familias = "https://servicos.jbrj.gov.br/v2/flora/families"
 
-lista_familias = request_familias.json()
+println("Buscando lista de famílias...")
 
-resultados = []
+# Faz a requisição inicial
+response_familias = HTTP.get(url_familias)
 
-for i in lista_familias:
-    url = f"https://servicos.jbrj.gov.br/v2/flora/species/{i}"
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-        data = response.json()
-        
-        if isinstance(data, list) and len(data) > 0:
-            
-            for j in range(0, len(data)):
-              primeiro_registro = data[j]
-              registro = {
-                  'Familia': primeiro_registro.get('family'),
-                  'Nome_Cientifico': primeiro_registro.get('scientificname'),
-                  'Status': primeiro_registro.get('taxonomicstatus')
-              }
-            
-              resultados.append(registro)
+# Converte o JSON recebido
+lista_familias = JSON3.read(String(response_familias.body))
 
-        print(i)
-        sleep(0.5)
-        
-    except requests.exceptions.RequestException as e:
-        print(f"Erro ao processar ID {e}")
-        continue
+# Vetor que armazenará os resultados
+resultados = NamedTuple[]
 
-df_resultados = pd.DataFrame(resultados)
-df_resultados.to_csv('resultados_flora.csv', index=False)
+println("Total de famílias: $(length(lista_familias))")
+
+for familia in lista_familias
+
+    url = "https://servicos.jbrj.gov.br/v2/flora/species/$(familia)"
+
+    try
+        response = HTTP.get(url)
+
+        # Verifica se a requisição foi bem-sucedida
+        if response.status == 200
+
+            data = JSON3.read(String(response.body))
+
+            if data isa AbstractVector && !isempty(data)
+
+                for registro in data
+
+                    push!(
+                        resultados,
+                        (
+                            Familia = get(registro, :family, missing),
+                            Nome_Cientifico = get(registro, :scientificname, missing),
+                            Status = get(registro, :taxonomicstatus, missing)
+                        )
+                    )
+
+                end
+
+            end
+
+            println("✓ $(familia)")
+
+        else
+            println("Erro ao processar $(familia): HTTP $(response.status)")
+        end
+
+    catch e
+        println("Erro ao processar $(familia): $(e)")
+    end
+
+    # Evita muitas requisições seguidas ao servidor
+    sleep(0.5)
+
+end
+
+# Converte os resultados para DataFrame
+df_resultados = DataFrame(resultados)
+
+# Salva em CSV
+CSV.write("dados_reflora.csv", df_resultados)
+
+println()
+println("Processamento concluído!")
+println("Total de registros: $(nrow(df_resultados))")
+println("Arquivo salvo em: dados_reflora.csv")
