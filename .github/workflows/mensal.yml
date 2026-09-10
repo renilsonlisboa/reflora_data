@@ -2,41 +2,76 @@ name: Atualizar dados de famílias
 
 on:
   schedule:
+    # Primeiro dia de cada mês às 00:00 UTC
     - cron: '0 0 1 * *'
 
+  # Permite executar manualmente
   workflow_dispatch:
 
 jobs:
   update-data:
     runs-on: ubuntu-latest
 
+    # Necessário para fazer commit/push
     permissions:
-      contents: read
+      contents: write
 
     steps:
+      # Checkout do repositório
       - name: 📥 Checkout do repositório
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
+      # Instala Julia
       - name: 🟣 Configurar Julia
         uses: julia-actions/setup-julia@v3
         with:
           version: '1'
 
+      # Cache dos pacotes Julia
       - name: 📦 Cache dos pacotes Julia
         uses: julia-actions/cache@v3
+        with:
+          delete-old-caches: false
 
+      # Instala as dependências do Project.toml
       - name: 📦 Instalar dependências
-        run: julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
+        run: |
+          julia --project=. -e '
+            using Pkg
+            Pkg.instantiate()
+            Pkg.precompile()
+          '
 
+      # Executa o script
       - name: 🚀 Executar script de coleta
         run: julia --project=. Scripts/conect_reflora.jl
 
-      - name: 📅 Definir data
-        run: echo "TODAY=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
+      # Confere se o arquivo foi criado
+      - name: 🔎 Verificar arquivo
+        run: |
+          ls -lh dados_reflora.csv
+          echo "Número de linhas:"
+          wc -l dados_reflora.csv
 
-      - name: 📤 Fazer upload do arquivo como artifact
-        uses: actions/upload-artifact@v4
+      # Salva o CSV no próprio repositório
+      - name: 💾 Salvar dados no repositório
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add -f dados_reflora.csv
+
+          if git diff --cached --quiet; then
+            echo "Nenhuma alteração nos dados."
+          else
+            git commit -m "Atualizar dados Reflora"
+            git push
+          fi
+
+      # Também salva uma cópia como artifact
+      - name: 📤 Fazer upload como artifact
+        uses: actions/upload-artifact@v7
         with:
-          name: dados-flora-${{ env.TODAY }}
+          name: dados-flora-${{ github.run_id }}
           path: dados_reflora.csv
           if-no-files-found: error
