@@ -1,17 +1,15 @@
 name: Atualizar dados de famílias
 
-# Agenda: executa no primeiro dia de cada mês às 00:00 UTC
 on:
   schedule:
     - cron: '0 0 1 * *'
-  # Permite executar manualmente pela interface do GitHub
+
   workflow_dispatch:
 
 jobs:
   update-data:
     runs-on: ubuntu-latest
-    # Permissão apenas de leitura para o conteúdo do repositório (padrão)
-    # A permissão 'contents: write' foi removida porque não faremos push
+
     permissions:
       contents: read
 
@@ -19,22 +17,26 @@ jobs:
       - name: 📥 Checkout do repositório
         uses: actions/checkout@v4
 
-      - name: 🐍 Configurar Python
-        uses: actions/setup-python@v5
+      - name: 🟣 Configurar Julia
+        uses: julia-actions/setup-julia@v3
         with:
-          python-version: '3.10'
+          version: '1'
+
+      - name: 📦 Cache dos pacotes Julia
+        uses: julia-actions/cache@v3
 
       - name: 📦 Instalar dependências
-        run: |
-          python -m pip install --upgrade pip
-          pip install requests pandas
+        run: julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
 
       - name: 🚀 Executar script de coleta
-        run: python Scripts/conect_reflora.py
+        run: julia --project=. Scripts/conect_reflora.jl
+
+      - name: 📅 Definir data
+        run: echo "TODAY=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
 
       - name: 📤 Fazer upload do arquivo como artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dados-flora-$(date +'%Y-%m-%d')  # Nome com data para evitar sobrescrita
+          name: dados-flora-${{ env.TODAY }}
           path: dados_reflora.csv
-          if-no-files-found: error  # Opcional: falha se o arquivo não for gerado
+          if-no-files-found: error
